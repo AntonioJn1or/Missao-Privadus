@@ -8,17 +8,23 @@ from pplay.gameobject import GameObject
 class Interactable(GameObject):
     """Área retangular que não bloqueia movimento e mede proximidade."""
 
-    def __init__(self, start_x, start_y, end_x, end_y):
+    def __init__(self, start_x, start_y, end_x, end_y, tag="default"):
         super().__init__()
         self.x = min(start_x, end_x)
         self.y = min(start_y, end_y)
         self.width = abs(end_x - start_x)
         self.height = abs(end_y - start_y)
+        self.__tag = tag
 
         if self.width == 0 or self.height == 0:
             raise ValueError(
                 "Interactable precisa ter largura e altura maiores que zero"
             )
+
+    @property
+    def tag(self):
+        """Identificador ou tipo da interação associada a esta área."""
+        return self.__tag
 
     def distance_to(self, bounds):
         """Distância euclidiana entre esta área e outro retângulo."""

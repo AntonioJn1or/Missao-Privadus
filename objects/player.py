@@ -43,7 +43,7 @@ _LEFT_FACING_DIRECTIONS = frozenset(("left", "up_left", "down_left"))
 
 
 class Player:
-    """Encapsula o sprite, a direção, o estado e o movimento de Privadus."""
+    """Encapsula o sprite, a direção, o estado, o movimento e a vida de Privadus."""
 
     FRAME_COUNT = 8
     SCALE_FACTOR = 1.5
@@ -52,17 +52,36 @@ class Player:
     MOVEMENT_SPEED = 180
     ANIMATION_DURATION_MS = 600
 
+    DEFAULT_MAX_HP = 100
+    DEFAULT_BASE_SPEED = 180
+    DEFAULT_INVULNERABILITY_DURATION = 1.0
+    HURT_RECOVERY_TIME = 0.2
+    BLINK_INTERVAL = 0.1
+
     DIRECTIONS = _DIRECTION_NAMES
     STATES = _STATE_NAMES
 
     # Por enquanto, estados sem arte própria usam stand_right como fallback.
     SPRITE_TABLE = _SPRITE_TABLE
 
-    def __init__(self, x=0, y=0):
+    def __init__(
+        self,
+        x=0,
+        y=0,
+        max_hp=DEFAULT_MAX_HP,
+        base_speed=DEFAULT_BASE_SPEED,
+        invulnerability_duration=DEFAULT_INVULNERABILITY_DURATION,
+    ):
         self.__facing_direction = "right"
         self.__state = "idle"
         self.__x = x
         self.__y = y
+        self.__max_hp = max(1, int(max_hp))
+        self.__hp = self.__max_hp
+        self.__base_speed = max(0.0, float(base_speed))
+        self.__invulnerability_duration = max(0.0, float(invulnerability_duration))
+        self.__invulnerability_timer = 0.0
+
         self.__sprite = None
         self.__active_sprite_key = None
         self.__load_current_spritesheet()
@@ -71,6 +90,36 @@ class Player:
             self.__sprite.height,
         )
         self.__sync_positions()
+
+    @property
+    def hp(self):
+        """Pontos de vida atuais de Privadus."""
+        return self.__hp
+
+    @property
+    def max_hp(self):
+        """Pontos de vida máximos de Privadus."""
+        return self.__max_hp
+
+    @property
+    def base_speed(self):
+        """Velocidade de movimento base em pixels por segundo."""
+        return self.__base_speed
+
+    @property
+    def is_invulnerable(self):
+        """Indica se Privadus está no período de invulnerabilidade (i-frames)."""
+        return self.__invulnerability_timer > 0.0
+
+    @property
+    def is_alive(self):
+        """Indica se Privadus ainda tem pontos de vida."""
+        return self.__hp > 0
+
+    @property
+    def invulnerability_timer(self):
+        """Tempo restante de invulnerabilidade em segundos."""
+        return self.__invulnerability_timer
 
     @property
     def facing_direction(self):
@@ -124,8 +173,65 @@ class Player:
         self.__load_current_spritesheet()
         self.__sync_positions()
 
+    def take_damage(self, amount):
+        """Aplica dano a Privadus se ele não estiver invulnerável ou morto.
+
+        Retorna True se o dano foi aplicado com sucesso e False se
+        Privadus já estiver invulnerável, morto ou dano for nulo/negativo.
+        """
+        if amount <= 0 or not self.is_alive or self.is_invulnerable:
+            return False
+
+        self.__hp = max(0, self.__hp - int(amount))
+        self.__invulnerability_timer = self.__invulnerability_duration
+
+        if self.__hp == 0:
+            self.set_state("dead")
+        else:
+            self.set_state("hurt")
+
+        return True
+
+    def heal(self, amount):
+        """Restaura pontos de vida até o limite de max_hp.
+
+        Retorna a quantidade efetiva de HP recuperada.
+        """
+        if not self.is_alive or amount <= 0:
+            return 0
+
+        previous_hp = self.__hp
+        self.__hp = min(self.__max_hp, self.__hp + int(amount))
+        return self.__hp - previous_hp
+
+    def set_invulnerable(self, duration):
+        """Ativa invulnerabilidade explicitamente por uma duração em segundos."""
+        if duration < 0:
+            raise ValueError("Duração de invulnerabilidade não pode ser negativa")
+        self.__invulnerability_timer = max(
+            self.__invulnerability_timer,
+            float(duration),
+        )
+
+    def set_base_speed(self, speed):
+        """Ajusta a velocidade base de locomoção de Privadus."""
+        if speed < 0:
+            raise ValueError("Velocidade base não pode ser negativa")
+        self.__base_speed = float(speed)
+
     def update(self, horizontal_input, vertical_input, delta_time, obstacles=()):
-        """Move Privadus nas oito direções sem limitar o tamanho da tela."""
+        """Atualiza a invulnerabilidade, o estado e a posição de Privadus."""
+        if not self.is_alive:
+            self.__state = "dead"
+            self.__load_current_spritesheet()
+            return
+
+        if self.__invulnerability_timer > 0:
+            self.__invulnerability_timer = max(
+                0.0,
+                self.__invulnerability_timer - delta_time,
+            )
+
         horizontal_input = max(-1, min(1, horizontal_input))
         vertical_input = max(-1, min(1, vertical_input))
 
@@ -133,11 +239,20 @@ class Player:
         sign_y = (vertical_input > 0) - (vertical_input < 0)
         input_length = math.hypot(sign_x, sign_y)
 
+        elapsed_invulnerability = (
+            self.__invulnerability_duration - self.__invulnerability_timer
+        )
+        can_recover_from_hurt = (
+            self.__state != "hurt"
+            or elapsed_invulnerability >= self.HURT_RECOVERY_TIME
+            or not self.is_invulnerable
+        )
+
         if input_length:
             self.__facing_direction = _DIRECTION_BY_INPUT[(sign_x, sign_y)]
-            if self.__state in ("idle", "walking"):
+            if can_recover_from_hurt and self.__state in ("idle", "walking", "hurt"):
                 self.__state = "walking"
-        elif self.__state == "walking":
+        elif can_recover_from_hurt and self.__state in ("walking", "hurt"):
             self.__state = "idle"
 
         if input_length > 1:
@@ -145,8 +260,8 @@ class Player:
             vertical_input /= input_length
 
         self.__load_current_spritesheet()
-        distance_x = horizontal_input * self.MOVEMENT_SPEED * delta_time
-        distance_y = vertical_input * self.MOVEMENT_SPEED * delta_time
+        distance_x = horizontal_input * self.__base_speed * delta_time
+        distance_y = vertical_input * self.__base_speed * delta_time
         self.__move_axis("x", distance_x, obstacles)
         self.__move_axis("y", distance_y, obstacles)
 
@@ -190,6 +305,12 @@ class Player:
 
     def draw(self):
         """Desenha e avança um quadro da animação atual."""
+        if self.is_invulnerable:
+            blink_step = int(self.__invulnerability_timer / self.BLINK_INTERVAL)
+            if blink_step % 2 == 1:
+                self.__sprite.update()
+                return
+
         self.__sprite.draw()
         self.__sprite.update()
 

@@ -30,6 +30,21 @@ class InteractionPopup:
         self.__sprite.set_total_duration(self.ANIMATION_DURATION_MS)
         self.__is_visible = False
 
+    @property
+    def is_visible(self):
+        """Indica se o popup está visível na tela."""
+        return self.__is_visible
+
+    def is_mouse_over(self, mouse_pos):
+        """Verifica se as coordenadas do mouse estão sobre o popup."""
+        if not self.__is_visible:
+            return False
+        mouse_x, mouse_y = mouse_pos
+        return (
+            self.__sprite.x <= mouse_x <= self.__sprite.x + self.__sprite.width
+            and self.__sprite.y <= mouse_y <= self.__sprite.y + self.__sprite.height
+        )
+
     def hide(self):
         """Oculta o indicador enquanto não houver objeto ao alcance."""
         self.__is_visible = False

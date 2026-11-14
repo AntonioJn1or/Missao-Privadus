@@ -3,6 +3,7 @@
 from pplay.window import Window
 from scenes.menu import Menu
 from scenes.phase1.phase import Phase1
+from scenes.phase2.phase import Phase2
 
 
 class Game:
@@ -46,3 +47,11 @@ class Game:
                 self.WINDOW_WIDTH,
                 self.WINDOW_HEIGHT,
             )
+        elif transition_name == "phase2":
+            self.__current_scene = Phase2(
+                self.__window,
+                self.WINDOW_WIDTH,
+                self.WINDOW_HEIGHT,
+            )
+        elif transition_name == "quit":
+            self.stop()

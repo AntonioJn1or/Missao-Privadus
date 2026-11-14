@@ -1,0 +1,3 @@
+80, 420, 160, 580, back_door
+700, 260, 920, 420, electrical_panel
+1520, 380, 1600, 580, sewer_gate
