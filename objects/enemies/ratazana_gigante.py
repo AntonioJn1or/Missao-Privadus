@@ -18,7 +18,7 @@ class RatazanaGigante(EnemyBase):
     POOL_INTERVAL = 2.4
     FRAME_COUNT = 8
     THROW_ANIMATION_DURATION = 0.8
-    SPRITE_SIZE = (144, 150)
+    SPRITE_SIZE = (216, 225)
 
     def __init__(self, x, y):
         super().__init__(
