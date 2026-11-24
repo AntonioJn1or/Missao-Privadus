@@ -1,18 +1,22 @@
 """Inimigo Coco — perseguidor em linha reta (INI-02)."""
 
+from pathlib import Path
+import random
+
 import pygame
 
 from objects.enemies.enemy_base import EnemyBase
 
 
-_COCO_COLOR = (139, 90, 43)       # marrom-coco
-_COCO_EYE_COLOR = (255, 255, 255)
-_COCO_PUPIL_COLOR = (0, 0, 0)
-_COCO_HURT_COLOR = (200, 60, 60)
-_COCO_DEAD_COLOR = (80, 50, 20)
-
 _WIDTH = 44
 _HEIGHT = 44
+_SPRITE_SCALE = 0.68
+_SPRITE_FRAME_COUNT = 12
+_SPRITE_ANIMATION_DURATION = 0.6
+_SPRITE_ASSETS = (
+    Path(__file__).resolve().parents[2] / "assets/imgs/enemies/coco1.png",
+    Path(__file__).resolve().parents[2] / "assets/imgs/enemies/coco2.png",
+)
 
 
 class Coco(EnemyBase):
@@ -29,6 +33,8 @@ class Coco(EnemyBase):
     CONTACT_DAMAGE = 10
     HURT_FLASH_DURATION = 0.15   # segundos piscando após levar dano
 
+    _sprite_frames_by_asset = {}
+
     def __init__(self, x, y):
         super().__init__(
             x, y,
@@ -37,6 +43,11 @@ class Coco(EnemyBase):
             contact_damage=self.CONTACT_DAMAGE,
         )
         self.__hurt_flash_timer = 0.0
+        sprite_asset = random.choice(_SPRITE_ASSETS)
+        self.__frames = self.__load_sprite_frames(sprite_asset)
+        self.__animation_frame = 0
+        self.__animation_timer = 0.0
+        self.__facing_left = False
 
     # ------------------------------------------------------------------
     # Hitbox
@@ -55,7 +66,7 @@ class Coco(EnemyBase):
     # ------------------------------------------------------------------
 
     def update(self, player_x, player_y, delta_time, obstacles=()):
-        """Atualiza o estado e a posição do Coco a cada quadro."""
+        """Atualiza o estado, a animação e a posição do Coco."""
         self._update_invulnerability(delta_time)
 
         if self.__hurt_flash_timer > 0.0:
@@ -63,11 +74,23 @@ class Coco(EnemyBase):
                 0.0, self.__hurt_flash_timer - delta_time
             )
 
+        horizontal_delta = player_x - (self.x + _WIDTH / 2)
+        if horizontal_delta != 0:
+            self.__facing_left = horizontal_delta < 0
+
+        self.__animation_timer += delta_time
+        frame_duration = _SPRITE_ANIMATION_DURATION / _SPRITE_FRAME_COUNT
+        while self.__animation_timer >= frame_duration:
+            self.__animation_timer -= frame_duration
+            self.__animation_frame = (
+                self.__animation_frame + 1
+            ) % _SPRITE_FRAME_COUNT
+
         if not self.is_alive:
             self._set_state("dead")
             return
 
-        # Centro do jogador (aproximação) para medir distância
+        # Centro do jogador para medir a distância de perseguição.
         distance = (
             (player_x - self.x) ** 2 + (player_y - self.y) ** 2
         ) ** 0.5
@@ -82,7 +105,7 @@ class Coco(EnemyBase):
                 self._move_toward(player_x, player_y, delta_time, obstacles)
 
     # ------------------------------------------------------------------
-    # Override de take_damage para ativar flash visual
+    # Dano e renderização
     # ------------------------------------------------------------------
 
     def take_damage(self, amount):
@@ -91,37 +114,47 @@ class Coco(EnemyBase):
             self.__hurt_flash_timer = self.HURT_FLASH_DURATION
         return damaged
 
-    # ------------------------------------------------------------------
-    # Renderização (placeholder geométrico pixel-art)
-    # ------------------------------------------------------------------
-
     def draw(self):
-        """Desenha o Coco como um círculo escuro com olhos simples."""
-        if not self.is_alive:
-            color = _COCO_DEAD_COLOR
-        elif self.__hurt_flash_timer > 0.0:
-            color = _COCO_HURT_COLOR
-        else:
-            color = _COCO_COLOR
-
+        """Desenha o frame atual da versão escolhida ao gerar o Coco."""
         screen = pygame.display.get_surface()
         if screen is None:
             return
 
-        cx = int(self.x + _WIDTH // 2)
-        cy = int(self.y + _HEIGHT // 2)
-        radius = _WIDTH // 2
+        frame, flipped_frame = self.__frames[self.__animation_frame]
+        image = flipped_frame if self.__facing_left else frame
+        if self.__hurt_flash_timer > 0.0:
+            image = image.copy()
+            image.fill((255, 100, 100, 255), special_flags=pygame.BLEND_RGBA_MULT)
 
-        pygame.draw.circle(screen, color, (cx, cy), radius)
+        # Mantém os pés alinhados com a hitbox usada para movimento e dano.
+        screen_x = self.x + (_WIDTH - image.get_width()) / 2
+        screen_y = self.y + _HEIGHT - image.get_height()
+        screen.blit(image, (round(screen_x), round(screen_y)))
 
-        # Olhos simples
-        if self.is_alive:
-            eye_offset_x = radius // 3
-            eye_offset_y = radius // 4
-            eye_radius = max(2, radius // 5)
-            pupil_radius = max(1, eye_radius // 2)
+    @classmethod
+    def __load_sprite_frames(cls, asset_path):
+        cached_frames = cls._sprite_frames_by_asset.get(asset_path)
+        if cached_frames is not None:
+            return cached_frames
 
-            for ex in (cx - eye_offset_x, cx + eye_offset_x):
-                ey = cy - eye_offset_y
-                pygame.draw.circle(screen, _COCO_EYE_COLOR, (ex, ey), eye_radius)
-                pygame.draw.circle(screen, _COCO_PUPIL_COLOR, (ex, ey), pupil_radius)
+        sheet = pygame.image.load(str(asset_path))
+        display_width = round(
+            sheet.get_width() / _SPRITE_FRAME_COUNT * _SPRITE_SCALE
+        )
+        display_height = round(sheet.get_height() * _SPRITE_SCALE)
+        frames = []
+        for index in range(_SPRITE_FRAME_COUNT):
+            left = index * sheet.get_width() // _SPRITE_FRAME_COUNT
+            right = (index + 1) * sheet.get_width() // _SPRITE_FRAME_COUNT
+            source_frame = sheet.subsurface(
+                pygame.Rect(left, 0, right - left, sheet.get_height())
+            )
+            frame = pygame.transform.scale(
+                source_frame,
+                (display_width, display_height),
+            )
+            frames.append((frame, pygame.transform.flip(frame, True, False)))
+
+        cached_frames = tuple(frames)
+        cls._sprite_frames_by_asset[asset_path] = cached_frames
+        return cached_frames

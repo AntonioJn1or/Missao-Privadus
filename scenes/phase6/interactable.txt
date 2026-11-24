@@ -1,0 +1,5 @@
+# Válvulas junto às laterais do círculo; acessíveis pelos pequenos ressaltos.
+145, 300, 225, 360, left_valve
+799, 300, 879, 360, right_valve
+# Ponto de interação na corrente que desce ao centro da arena.
+462, 270, 562, 315, golden_flush

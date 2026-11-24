@@ -43,6 +43,16 @@ class Hud:
         self.__stage_name = stage_name
         self.__objective = objective
         self.__survival_time = 0.0
+        self.__ammo = 0
+
+    @property
+    def ammo(self):
+        """Quantidade de munição de papel higiênico."""
+        return self.__ammo
+
+    def set_ammo(self, ammo):
+        """Atualiza o contador de munição de papel higiênico."""
+        self.__ammo = max(0, int(ammo))
 
     @property
     def survival_time(self):
@@ -89,7 +99,7 @@ class Hud:
 
     def __draw_health_bar(self):
         panel_width = self.BAR_WIDTH + 110
-        panel_height = 54
+        panel_height = 76 if self.__ammo > 0 else 54
         panel = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
         panel.fill(self.COLOR_PANEL_BG)
         self.__window.screen.blit(panel, (self.BAR_X - 8, self.BAR_Y - 26))
@@ -164,6 +174,18 @@ class Hud:
             font_name=self.FONT_NAME,
             bold=True,
         )
+
+        if self.__ammo > 0:
+            ammo_text = f"Papel: {self.__ammo} (Botão Direito do Mouse)"
+            self.__window.draw_text(
+                ammo_text,
+                self.BAR_X,
+                self.BAR_Y + self.BAR_HEIGHT + 6,
+                size=self.LABEL_FONT_SIZE,
+                color=(240, 240, 180),
+                font_name=self.FONT_NAME,
+                bold=True,
+            )
 
     def __draw_run_info(self):
         font = pygame.font.SysFont(self.FONT_NAME, self.VALUE_FONT_SIZE, bold=True)

@@ -1,0 +1,18 @@
+# Coordenadas de fase3-1.png (1672 x 941).
+# Passarelas livres:
+# madeira superior esquerda: 305, 322 até 715, 426
+# madeira vertical central: 700, 420 até 875, 750
+# ponte metálica superior direita: 870, 320 até 1450, 467
+# madeira inferior: 430, 739 até 935, 877
+# As faixas de água abaixo bloqueiam a saída dessas passarelas.
+0, 0, 1672, 20
+0, 0, 20, 941
+0, 921, 1672, 941
+1652, 0, 1672, 941
+45, 425, 430, 620
+430, 425, 697, 738
+490, 190, 697, 320
+714, 190, 865, 320
+875, 190, 1450, 318
+875, 467, 1120, 738
+1122, 467, 1380, 610

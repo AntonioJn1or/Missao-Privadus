@@ -1,0 +1,8 @@
+# Manivela ocidental vermelha: interrompe o vazamento.
+238, 125, 314, 205, western_gate
+# Kit de desentupimento no piso seco do cais sudeste.
+1230, 640, 1310, 725, desinfetante
+# Manivela oriental vermelha: drena a água.
+1465, 225, 1545, 310, eastern_gate
+# Saída pelo arco de tijolos no limite leste.
+1580, 335, 1665, 455, reservoir_gate

@@ -1,0 +1,22 @@
+# Coordenadas de fase5.png (1672 x 941).
+# Limites da cidadela.
+0, 0, 1672, 20
+0, 0, 20, 941
+0, 921, 1672, 941
+1652, 0, 1672, 941
+# Abismo de lodo a oeste: deixa livre a ilha e a passagem elevada.
+20, 430, 260, 790
+260, 430, 410, 665
+410, 430, 560, 510
+410, 610, 560, 755
+560, 430, 755, 755
+# Abismo de lodo a leste: preserva as plataformas de pedra e a ponte central.
+910, 430, 1110, 755
+1110, 430, 1250, 490
+1110, 620, 1250, 790
+1250, 430, 1410, 590
+1250, 735, 1410, 790
+1410, 430, 1652, 790
+# O piso inferior só é transitável entre as duas extremidades da plataforma.
+20, 790, 330, 900
+1340, 790, 1652, 900

@@ -5,6 +5,8 @@ from pathlib import Path
 import pygame
 from pplay.gameimage import GameImage
 
+from objects.audio import Audio
+from objects.mouse_input import mouse_position, read_mouse
 from scenes.scene import Scene
 
 
@@ -19,6 +21,7 @@ class Menu(Scene):
 
     def __init__(self, window):
         super().__init__(window)
+        Audio.play_music("Menu_e_fase1.mp3")
 
         project_root = Path(__file__).resolve().parents[1]
         background_path = project_root / self.BACKGROUND_ASSET
@@ -64,9 +67,8 @@ class Menu(Scene):
 
     def process_input(self):
         """Detecta o clique do mouse nos botões 'Dar Descarga' e 'Sair'."""
-        mouse = self.window.mouse
-        mouse_x, mouse_y = mouse.get_position()
-        is_left_down = mouse.is_button_pressed(1)
+        (mouse_x, mouse_y), mouse_buttons = read_mouse(self.window)
+        is_left_down = bool(mouse_buttons[0]) if mouse_buttons else False
 
         # Detecta a borda de subida do clique (quando o botão é pressionado)
         click_occurred = is_left_down and not self.__was_left_down
@@ -83,8 +85,7 @@ class Menu(Scene):
         super().draw()
         self.__background.draw()
 
-        mouse = self.window.mouse
-        mouse_x, mouse_y = mouse.get_position()
+        mouse_x, mouse_y = mouse_position(self.window)
         is_hovering_start = self.start_button_rect.collidepoint(mouse_x, mouse_y)
         is_hovering_exit = self.exit_button_rect.collidepoint(mouse_x, mouse_y)
 

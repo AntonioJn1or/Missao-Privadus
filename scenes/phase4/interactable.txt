@@ -1,0 +1,2 @@
+791, 425, 881, 515, aromatic_tablet
+790, 835, 882, 915, abyssal_outlet

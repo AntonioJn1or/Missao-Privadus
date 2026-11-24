@@ -1,22 +1,13 @@
 """Jogador Privadus e sua representação visual."""
 
 import math
-
 import pygame
 from pplay.sprite import Sprite
-
 from objects.locomotion_hurtbox import LocomotionHurtbox
 
-
 _DIRECTION_NAMES = (
-    "up",
-    "up_right",
-    "right",
-    "down_right",
-    "down",
-    "down_left",
-    "left",
-    "up_left",
+    "up", "up_right", "right", "down_right",
+    "down", "down_left", "left", "up_left",
 )
 _STATE_NAMES = ("idle", "walking", "attacking", "hurt", "dead")
 _STAND_RIGHT_ASSET = "assets/imgs/privadus/stand_right.png"
@@ -30,14 +21,8 @@ for _direction in _DIRECTION_NAMES:
     _SPRITE_TABLE[_direction]["walking"] = _WALKING_RIGHT_ASSET
 
 _DIRECTION_BY_INPUT = {
-    (0, -1): "up",
-    (1, -1): "up_right",
-    (1, 0): "right",
-    (1, 1): "down_right",
-    (0, 1): "down",
-    (-1, 1): "down_left",
-    (-1, 0): "left",
-    (-1, -1): "up_left",
+    (0, -1): "up", (1, -1): "up_right", (1, 0): "right", (1, 1): "down_right",
+    (0, 1): "down", (-1, 1): "down_left", (-1, 0): "left", (-1, -1): "up_left",
 }
 _LEFT_FACING_DIRECTIONS = frozenset(("left", "up_left", "down_left"))
 
@@ -60,8 +45,6 @@ class Player:
 
     DIRECTIONS = _DIRECTION_NAMES
     STATES = _STATE_NAMES
-
-    # Por enquanto, estados sem arte própria usam stand_right como fallback.
     SPRITE_TABLE = _SPRITE_TABLE
 
     def __init__(
@@ -71,6 +54,8 @@ class Player:
         max_hp=DEFAULT_MAX_HP,
         base_speed=DEFAULT_BASE_SPEED,
         invulnerability_duration=DEFAULT_INVULNERABILITY_DURATION,
+        has_plunger=False,
+        initial_ammo=0,
     ):
         self.__facing_direction = "right"
         self.__state = "idle"
@@ -81,6 +66,12 @@ class Player:
         self.__base_speed = max(0.0, float(base_speed))
         self.__invulnerability_duration = max(0.0, float(invulnerability_duration))
         self.__invulnerability_timer = 0.0
+        self.__has_plunger = bool(has_plunger)
+        self.__ammo = max(0, int(initial_ammo))
+        self.__projectile_damage = 10
+        self.__inventory = set()
+        if self.__has_plunger:
+            self.__inventory.add("plunger")
 
         self.__sprite = None
         self.__active_sprite_key = None
@@ -92,117 +83,74 @@ class Player:
         self.__sync_positions()
 
     @property
+    def has_plunger(self):
+        """Indica se Privadus coletou o Desentupidor Reforçado."""
+        return self.__has_plunger
+
+    def equip_plunger(self):
+        """Equipa o desentupidor, liberando o ataque corpo a corpo."""
+        self.__has_plunger = True
+        self.__inventory.add("plunger")
+
+    @property
+    def inventory(self):
+        """Conjunto de identificadores de itens coletados pelo jogador."""
+        return set(self.__inventory)
+
+    def add_item(self, item_name):
+        """Adiciona um item ao inventário de Privadus."""
+        self.__inventory.add(str(item_name))
+        if item_name in ("plunger", "desentupidor"):
+            self.__has_plunger = True
+
+    def has_item(self, item_name):
+        """Verifica se o jogador possui o item no inventário."""
+        if item_name in ("plunger", "desentupidor"):
+            return self.__has_plunger or item_name in self.__inventory
+        return item_name in self.__inventory
+
+    @property
+    def ammo(self):
+        """Quantidade de munição de papel higiênico carregada pelo jogador."""
+        return self.__ammo
+
+    def set_ammo(self, amount):
+        """Define a quantidade de munição de papel higiênico."""
+        self.__ammo = max(0, int(amount))
+
+    def add_ammo(self, amount):
+        """Adiciona munição de papel higiênico ao jogador."""
+        self.__ammo += max(0, int(amount))
+
+    @property
+    def projectile_damage(self):
+        """Dano base atual dos projéteis nesta run."""
+        return self.__projectile_damage
+
+    def increase_projectile_damage(self, amount):
+        self.__projectile_damage += max(0, int(amount))
+        return self.__projectile_damage
+
+    @property
     def hp(self):
-        """Pontos de vida atuais de Privadus."""
         return self.__hp
 
     @property
     def max_hp(self):
-        """Pontos de vida máximos de Privadus."""
         return self.__max_hp
 
     @property
     def base_speed(self):
-        """Velocidade de movimento base em pixels por segundo."""
         return self.__base_speed
 
     @property
     def is_invulnerable(self):
-        """Indica se Privadus está no período de invulnerabilidade (i-frames)."""
         return self.__invulnerability_timer > 0.0
-
-    @property
-    def is_alive(self):
-        """Indica se Privadus ainda tem pontos de vida."""
-        return self.__hp > 0
 
     @property
     def invulnerability_timer(self):
         """Tempo restante de invulnerabilidade em segundos."""
         return self.__invulnerability_timer
-
-    @property
-    def facing_direction(self):
-        """Direção atual do olhar, entre as oito direções suportadas."""
-        return self.__facing_direction
-
-    @property
-    def state(self):
-        """Estado atual de animação do personagem."""
-        return self.__state
-
-    @property
-    def x(self):
-        return self.__x
-
-    @property
-    def y(self):
-        return self.__y
-
-    @property
-    def interaction_bounds(self):
-        """Limites da hitbox dos pés para detectar objetos próximos."""
-        return (
-            self.__locomotion_hurtbox.x,
-            self.__locomotion_hurtbox.y,
-            self.__locomotion_hurtbox.width,
-            self.__locomotion_hurtbox.height,
-        )
-
-    def teleport_to(self, x, y):
-        """Teletransporta Privadus e alinha suas hitboxes."""
-        self.__x = x
-        self.__y = y
-        self.__sync_positions()
-
-    def set_facing_direction(self, direction):
-        """Define para onde Privadus olha."""
-        if direction not in self.DIRECTIONS:
-            raise ValueError(f"Direção inválida: {direction}")
-
-        self.__facing_direction = direction
-        self.__load_current_spritesheet()
-        self.__sync_positions()
-
-    def set_state(self, state):
-        """Define o estado visual de Privadus."""
-        if state not in self.STATES:
-            raise ValueError(f"Estado inválido: {state}")
-
-        self.__state = state
-        self.__load_current_spritesheet()
-        self.__sync_positions()
-
-    def take_damage(self, amount):
-        """Aplica dano a Privadus se ele não estiver invulnerável ou morto.
-
-        Retorna True se o dano foi aplicado com sucesso e False se
-        Privadus já estiver invulnerável, morto ou dano for nulo/negativo.
-        """
-        if amount <= 0 or not self.is_alive or self.is_invulnerable:
-            return False
-
-        self.__hp = max(0, self.__hp - int(amount))
-        self.__invulnerability_timer = self.__invulnerability_duration
-
-        if self.__hp == 0:
-            self.set_state("dead")
-        else:
-            self.set_state("hurt")
-
-        return True
-
-    def heal(self, amount):
-        """Restaura pontos de vida até o limite de max_hp.
-
-        Retorna a quantidade efetiva de HP recuperada.
-        """
-        if not self.is_alive or amount <= 0:
-            return 0
-
-        previous_hp = self.__hp
-        self.__hp = min(self.__max_hp, self.__hp + int(amount))
-        return self.__hp - previous_hp
 
     def set_invulnerable(self, duration):
         """Ativa invulnerabilidade explicitamente por uma duração em segundos."""
@@ -219,8 +167,73 @@ class Player:
             raise ValueError("Velocidade base não pode ser negativa")
         self.__base_speed = float(speed)
 
+    @property
+    def is_alive(self):
+        return self.__hp > 0
+
+    @property
+    def facing_direction(self):
+        return self.__facing_direction
+
+    @property
+    def state(self):
+        return self.__state
+
+    @property
+    def x(self):
+        return self.__x
+
+    @property
+    def y(self):
+        return self.__y
+
+    @property
+    def interaction_bounds(self):
+        return (
+            self.__locomotion_hurtbox.x,
+            self.__locomotion_hurtbox.y,
+            self.__locomotion_hurtbox.width,
+            self.__locomotion_hurtbox.height,
+        )
+
+    def teleport_to(self, x, y):
+        self.__x = x
+        self.__y = y
+        self.__sync_positions()
+
+    def set_facing_direction(self, direction):
+        if direction not in self.DIRECTIONS:
+            raise ValueError(f"Direção inválida: {direction}")
+        self.__facing_direction = direction
+        self.__load_current_spritesheet()
+        self.__sync_positions()
+
+    def set_state(self, state):
+        if state not in self.STATES:
+            raise ValueError(f"Estado inválido: {state}")
+        self.__state = state
+        self.__load_current_spritesheet()
+        self.__sync_positions()
+
+    def take_damage(self, amount):
+        if amount <= 0 or not self.is_alive or self.is_invulnerable:
+            return False
+        self.__hp = max(0, self.__hp - int(amount))
+        self.__invulnerability_timer = self.__invulnerability_duration
+        if self.__hp == 0:
+            self.set_state("dead")
+        else:
+            self.set_state("hurt")
+        return True
+
+    def heal(self, amount):
+        if not self.is_alive or amount <= 0:
+            return 0
+        previous_hp = self.__hp
+        self.__hp = min(self.__max_hp, self.__hp + int(amount))
+        return self.__hp - previous_hp
+
     def update(self, horizontal_input, vertical_input, delta_time, obstacles=()):
-        """Atualiza a invulnerabilidade, o estado e a posição de Privadus."""
         if not self.is_alive:
             self.__state = "dead"
             self.__load_current_spritesheet()
@@ -304,7 +317,6 @@ class Player:
             self.__sync_positions()
 
     def draw(self):
-        """Desenha e avança um quadro da animação atual."""
         if self.is_invulnerable:
             blink_step = int(self.__invulnerability_timer / self.BLINK_INTERVAL)
             if blink_step % 2 == 1:
@@ -342,7 +354,6 @@ class Player:
         self.__active_sprite_key = sprite_key
 
     def __sync_positions(self):
-        """Mantém o sprite e a hitbox de locomoção alinhados."""
         self.__sprite.x = self.__x
         self.__sprite.y = self.__y
         self.__locomotion_hurtbox.follow(
@@ -358,7 +369,6 @@ class Player:
             spritesheet.get_size(),
             pygame.SRCALPHA,
         )
-
         for frame_index in range(self.FRAME_COUNT):
             frame_area = pygame.Rect(
                 frame_index * frame_width,
@@ -375,5 +385,4 @@ class Player:
                 flipped_frame,
                 (frame_index * frame_width, 0),
             )
-
         return flipped_spritesheet

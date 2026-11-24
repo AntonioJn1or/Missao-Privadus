@@ -1,0 +1,7 @@
+# Runas laterais nos portais verde e roxo da imagem.
+95, 220, 205, 350, west_rune
+1465, 220, 1575, 350, east_rune
+# Runa dourada na plataforma inferior central; destruída com Q.
+785, 700, 885, 815, center_rune
+# Altar/portal central no topo, saída para a arena exclusiva do Gnomo.
+780, 70, 892, 200, throne_portal

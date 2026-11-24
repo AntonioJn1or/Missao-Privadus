@@ -1,0 +1,2 @@
+# Entrada superior para o Reservatório Central em fase3-2.png.
+770, 150, 902, 210, reservoir_gate
